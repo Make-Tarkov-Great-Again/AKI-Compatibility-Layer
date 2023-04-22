@@ -7,5 +7,8 @@
     "isBundleMod": false,
     "devDependencies": {
         "typescript": "^5.0.4"
+    },
+    "dependencies": {
+        "tsyringe": "^4.7.0"
     }
 }
