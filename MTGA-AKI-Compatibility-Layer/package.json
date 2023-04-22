@@ -1,8 +1,0 @@
-{
-    "name": "AKI Compatibility Layer",
-    "author": "MTGA",
-    "license": "",
-    "version": "1.0.0",
-    "main": "mod.mjs",
-    "isBundleMod": false
-}

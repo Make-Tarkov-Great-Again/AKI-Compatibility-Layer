@@ -1,0 +1,11 @@
+{
+    "name": "AKI Compatibility Layer",
+    "author": "MTGA",
+    "license": "",
+    "version": "1.0.0",
+    "main": "src/mod.mjs",
+    "isBundleMod": false,
+    "devDependencies": {
+        "typescript": "^5.0.4"
+    }
+}

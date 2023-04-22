@@ -1,5 +1,8 @@
 
-const MOD_PATH = `user/mods/MTGA-AKI-Compatibility-Layer/`;
+const MOD_PATH = `user/mods/AKI-Compatibility-Layer/src/`;
+import pkg from 'typescript';
+const { ScriptTarget, ModuleKind, transpileModule } = pkg;
+
 
 class Mod {
 
@@ -21,8 +24,7 @@ class Mod {
         ]);
 
         this.toolkit = {
-            recursiveAkiModRewriting: async (modPath) => { return recursiveAkiModRewriting(modPath) },
-            compileTS: async () => { return compileTS() },
+            refactorAkiMod: async (modPath) => { return this.refactorAkiMod(modPath) }
         };
         return {
             container: this.container,
@@ -181,96 +183,65 @@ class Mod {
 
     }
 
-    //../MTGA-AKI-Compatibility-Layer/
-    async recursiveAkiModRewriting(modPath) {
-        const files = await readdir(modPath);
+    async refactorAkiMod(modPath) {
+        const files = await this.utilities.readdir(modPath);
         const regex = /bundle|\.json|\.md|\.png|\.txt/;
         const snapshotPath = "C:/snapshot/project/obj";
         const sptPath = "@spt-aki/"
-        const replacedPath = (modPath.includes("/src") ? "../../" : "../") + "MTGA-AKI-Compatibility-Layer/";
+        const replacedPath = (modPath.includes("/src") ? "../../" : "../") + "AKI-Compatibility-Layer/src";
 
         for (const file of files) {
-            if (regex.test(file))
-                continue;
+            if (regex.test(file)) continue;
 
             const newPath = `${modPath}/${file}`;
-            if (await isDirectory(newPath)) {
-                await this.recursiveAkiModRewriting(newPath);
-                continue;
+            if (await this.utilities.isDirectory(newPath)) {
+                await this.refactorAkiMod(newPath);
             }
 
-            /*             const readFile = await read(newPath, false);
-                        let replaced = readFile.toString();
-                        if (file.includes(".js") && replaced.includes(snapshotPath)) {
-                            replaced = readFile.toString().replace(snapshotPath, replacedPath);
-            
-                            while (replaced.includes(snapshotPath)) {
-                                replaced = replaced.replace(snapshotPath, replacedPath);
-                            }
-                        } else if (file.includes(".ts") && replaced.includes(sptPath)) {
-                            replaced = readFile.toString().replace(sptPath, replacedPath);
-            
-                            while (replaced.includes(sptPath)) {
-                                replaced = replaced.replace(sptPath, replacedPath);
-                            }
-                        } */
-
-            if (file.includes(".ts")) {
-                const CONFIG = {
-                    entry: newPath,
-                    output: {
-                        filename: file.replace(".ts", ".js"),
-                        path: modPath
-                    },
-                    module: {
-                        rules: [
-                            {
-                                exclude: /node_modules/,
-                                test: /\.tsx?$/,
-                                use: [
-                                    {
-                                        loader: 'ts-loader',
-                                        options: {
-                                            compilerOptions: {
-                                                noEmitOnError: true,
-                                                noImplicitAny: false,
-                                                target: "es2020",
-                                                module: "commonjs",
-                                                resolveJsonModule: true,
-                                                allowJs: true,
-                                                esModuleInterop: true,
-                                                downlevelIteration: true,
-                                                experimentalDecorators: true,
-                                                emitDecoratorMetadata: true,
-                                                isolatedModules: true
-                                            }
-                                        }
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    resolve: {
-                        extensions: ['.tsx', '.ts', '.js']
-                    }
-                }
-
-                const compiler = webpack(CONFIG);
-                compiler.run((err, stats) => {
-                    if (err || stats.hasErrors()) {
-                        console.log(err);
-                    }
-
-                    console.log("hello???????????")
-                })
+            const readFile = await this.utilities.read(newPath, false);
+            let replaced = readFile.toString();
+            if (file.includes(".js") && replaced.includes(snapshotPath)) {
+                replaced = replacePath(readFile.toString(), snapshotPath, replacedPath);
+                writeBackup(newPath, readFile.toString());
+                await this.utilities.write(newPath, replaced);
+            } else if (file.includes(".ts") && replaced.includes(sptPath)) {
+                replaced = replacePath(readFile.toString(), sptPath, replacedPath);
+                const compiler = transpileModule(replaced, getConfig(modPath));
+                await this.utilities.write(newPath.replace(".ts", ".js"), compiler.outputText);
                 console.log("im a fat faggot");
             }
         }
     }
 
-    async compileTS() {
-        //read .TS to string, replace shit that doesn't work with regex, transpile, write to .JS
-        return;
+    static replacePath(str, oldPath, newPath) {
+        let replaced = str.replace(oldPath, newPath);
+        while (replaced.includes(oldPath)) {
+            replaced = replaced.replace(oldPath, newPath);
+        }
+        return replaced;
+    }
+
+    static writeBackup(path, content) {
+        return this.utilities.write(path.replace(".js", "_old.js"), content);
+    }
+
+    static getConfig(modPath) {
+        return {
+            compilerOptions: {
+                noEmitOnError: true,
+                noImplicitAny: false,
+                target: ScriptTarget.ES2020,
+                module: ModuleKind.CommonJS,
+                resolveJsonModule: true,
+                allowJs: true,
+                esModuleInterop: true,
+                downlevelIteration: true,
+                experimentalDecorators: true,
+                emitDecoratorMetadata: true,
+                rootDir: modPath,
+                isolatedModules: true
+            }
+        }
     }
 
 }
