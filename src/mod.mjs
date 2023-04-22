@@ -1,8 +1,8 @@
 
-const MOD_PATH = `user/mods/AKI-Compatibility-Layer/src/`;
 import pkg from 'typescript';
 const { ScriptTarget, ModuleKind, transpileModule } = pkg;
 
+import { getDirname } from '../../../../lib/utilities/_index.mjs';
 import { statSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -190,7 +190,10 @@ class Mod {
         const regex = /bundle|\.json|\.md|\.png|\.txt/;
         const snapshotPath = "C:/snapshot/project/obj";
         const sptPath = "@spt-aki/"
-        const replacedPath = (modPath.includes("/src") ? "../../" : "../") + "AKI-Compatibility-Layer/src";
+        const replacedPath = join(getDirname(import.meta.url), "..").replace(/\\/g, "/");
+
+        //replacedPath isn't working because modules are not being found
+        //
 
         for (const file of files) {
             if (regex.test(file)) continue;
@@ -207,12 +210,15 @@ class Mod {
             if (file.includes(".js") && replaced.includes(snapshotPath)) {
                 this.writeBackup(newPath, replaced);
 
-                const data = this.replacePath(replaced, snapshotPath, replacedPath);
+                let data = this.replacePath(replaced, sptPath, replacedPath + "/src");
+                data = this.replacePath(data, "\"tsyringe\"", replacedPath + "/node_modules/tsyringe\"");
+                data = this.replacePath(data, snapshotPath, replacedPath + "/src");
+
                 writeFileSync(newPath, data);
             }
 
             else if (file.includes(".ts") && replaced.includes(sptPath)) {
-                const data = this.replacePath(replaced, sptPath, replacedPath);
+                const data = this.replacePath(replaced, sptPath, replacedPath + "/src");
                 const compiler = transpileModule(data, this.getConfig(modPath));
                 writeFileSync(newPath.replace(".ts", ".js"), compiler.outputText);
             }
