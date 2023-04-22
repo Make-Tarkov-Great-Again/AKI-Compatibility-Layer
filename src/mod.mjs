@@ -3,6 +3,9 @@ const MOD_PATH = `user/mods/AKI-Compatibility-Layer/src/`;
 import pkg from 'typescript';
 const { ScriptTarget, ModuleKind, transpileModule } = pkg;
 
+import { statSync, readFileSync, readdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+
 
 class Mod {
 
@@ -33,7 +36,7 @@ class Mod {
     }
 
     async setWinstonLogger() {
-        this.container["logger"] = {
+        this.container["WinstonLogger"] = {
             debug: (data, _onlyShowInConsole = false) => {
                 return this.utilities.logger.debug(data);
             },
@@ -59,7 +62,9 @@ class Mod {
     }
 
     async setJsonUtil() {
-        this.container["JsonUtil"] = {};
+        this.container["JsonUtil"] = {
+            clone: (data) => { return JSON.parse(JSON.stringify(data)) },
+        };
     }
 
     async setBundleLoader() {
@@ -157,20 +162,17 @@ class Mod {
 
     async setImporterUtils() {
         const importer = this.container;
-        const loadRecursiveAsync = async (dir) => { return loadRecursive(dir) };
-        const loadRecursive = async (dir) => {
-            const fs = await import('fs');
-            const path = await import('path');
-
+        const loadRecursiveAsync = (dir) => { return loadRecursive(dir) };
+        const loadRecursive = (dir) => {
             let files = {};
-            const dirContent = fs.readdirSync(dir);
+            const dirContent = readdirSync(dir);
             for (let i = 0, LENGTH = dirContent.length; i < LENGTH; i++) {
-                const filePath = path.join(dir, dirContent[i]);
+                const filePath = join(dir, dirContent[i]);
                 const fileName = dirContent[i].replace(".json", "");
-                if (fs.statSync(filePath).isDirectory()) {
-                    files[fileName] = await loadRecursiveAsync(filePath);
+                if (statSync(filePath).isDirectory()) {
+                    files[fileName] = loadRecursive(filePath);
                 } else {
-                    files[fileName] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                    files[fileName] = JSON.parse(readFileSync(filePath, 'utf8'));
                 }
             }
             return files;
@@ -184,7 +186,7 @@ class Mod {
     }
 
     async refactorAkiMod(modPath) {
-        const files = await this.utilities.readdir(modPath);
+        const files = readdirSync(modPath);
         const regex = /bundle|\.json|\.md|\.png|\.txt/;
         const snapshotPath = "C:/snapshot/project/obj";
         const sptPath = "@spt-aki/"
@@ -194,26 +196,30 @@ class Mod {
             if (regex.test(file)) continue;
 
             const newPath = `${modPath}/${file}`;
-            if (await this.utilities.isDirectory(newPath)) {
+            const isDir = statSync(newPath).isDirectory();
+            if (isDir) {
                 await this.refactorAkiMod(newPath);
+                continue;
             }
 
-            const readFile = await this.utilities.read(newPath, false);
-            let replaced = readFile.toString();
+            const readFile = readFileSync(newPath);
+            const replaced = readFile.toString();
             if (file.includes(".js") && replaced.includes(snapshotPath)) {
-                replaced = replacePath(readFile.toString(), snapshotPath, replacedPath);
-                writeBackup(newPath, readFile.toString());
-                await this.utilities.write(newPath, replaced);
-            } else if (file.includes(".ts") && replaced.includes(sptPath)) {
-                replaced = replacePath(readFile.toString(), sptPath, replacedPath);
-                const compiler = transpileModule(replaced, getConfig(modPath));
-                await this.utilities.write(newPath.replace(".ts", ".js"), compiler.outputText);
-                console.log("im a fat faggot");
+                this.writeBackup(newPath, replaced);
+
+                const data = this.replacePath(replaced, snapshotPath, replacedPath);
+                writeFileSync(newPath, data);
+            }
+
+            else if (file.includes(".ts") && replaced.includes(sptPath)) {
+                const data = this.replacePath(replaced, sptPath, replacedPath);
+                const compiler = transpileModule(data, this.getConfig(modPath));
+                writeFileSync(newPath.replace(".ts", ".js"), compiler.outputText);
             }
         }
     }
 
-    static replacePath(str, oldPath, newPath) {
+    replacePath(str, oldPath, newPath) {
         let replaced = str.replace(oldPath, newPath);
         while (replaced.includes(oldPath)) {
             replaced = replaced.replace(oldPath, newPath);
@@ -221,11 +227,11 @@ class Mod {
         return replaced;
     }
 
-    static writeBackup(path, content) {
-        return this.utilities.write(path.replace(".js", "_old.js"), content);
+    writeBackup(path, content) {
+        return writeFileSync(path.replace(".js", "_old.js"), content);
     }
 
-    static getConfig(modPath) {
+    getConfig(modPath) {
         return {
             compilerOptions: {
                 noEmitOnError: true,
